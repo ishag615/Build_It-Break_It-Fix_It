@@ -2,57 +2,103 @@
 #include <fstream>
 #include <string>
 #include <regex>
+#include <vector>
+#include <map>
 
 using namespace std;
 
 /// ////////////////////////////////////////////CLASS VARIABLES AND FUNCTIONS/////////////////////////////////////////////////////////////
-class appendLog{
-private:
-int lastStamp;
-string token;
-regex tokenPattern;
-regex employeePattern;
-bool employee, guest, enteredGallery, enteredLobby, enteredPaleontology, enteredEgyptian, enteredMesopotamian, enteredGreek, enteredSouthAsian, leaveGallery;
-string currentRoom;
-string employeeName, guestName, room;
 
+struct Person {
+    string currentToken;
+    string name;
+    bool isGuest = false;
+    vector<int> roomsVisited; //*need to implement room visit tracking*
+    bool inGallery = false;
+    int currentRoom = -1;
+};
+
+class appendLog {
+    private:
+    int lastStamp; //stores the last timestamp logged
+    string token; //stores token
+    regex tokenPattern; //stores regex pattern for token 
+    regex employeePattern; //stores regex pattern for employee
+    bool employee, guest, enteredGallery, enteredLobby, enteredPaleontology, enteredEgyptian, enteredMesopotamian, enteredGreek, enteredSouthAsian, leaveGallery;
+    string currentRoom; //stores current room
+    string employeeName, guestName, room; 
+    map<string, Person> group; //stores all persons logged, and their details
+    string fileName;
 
 public:
-appendLog();
-void TimeStamp(const string& tmp);
-void Token(const string& tmp);
-void EmployeeName(const string& tmp);
-void GuestName(const string& tmp);
-void Room(const string& tmp);
-void EventArrival(const string& tmp, const string& tmpj);
-void EventLeave(const string& tmp, const string& tmpj);
-void leaveRoom(bool yourRoom);
+    appendLog();
+    void TimeStamp(const string& tmp); //logs time
+    void Token(const string& tmp); //logs token
+    void EmployeeName(const string& tmp); //logs employee employee status
+    void GuestName(const string& tmp); //logs guest status
+    void Room(const string& tmp); //logs room entered
+    void EventArrival(const string& tmp, const string& tmpj); //logs when -A is called
+    void EventLeave(const string& tmp, const string& tmpj); //logs when -L is called
+    void bindDetails(const string& token, const string& name, bool isGuest, const string& room);//using this to bind name, token, guest/employee status, room to ensure consistency
+    void storeFileName(const string& tmp, int argc, char* argv[]); //stores the filename 
+    bool validateLogEntered(const string& token, const string& name, bool isGuest, const string& room); //validates the log file
 
 };
 
 appendLog::appendLog():
-lastStamp(0),
-guest(false),
-employee(false),
-tokenPattern("^[A-Za-z0-9]+$"),
-employeePattern("^[A-Za-z]+$"),
-enteredGallery(false),
-currentRoom(""),
-leaveGallery(false),
-enteredLobby(false), 
-enteredPaleontology(false), 
-enteredEgyptian(false), 
-enteredMesopotamian(false), 
-enteredGreek(false), 
-enteredSouthAsian(false)
+    lastStamp(0),
+    guest(false),
+    employee(false),
+    tokenPattern("^[A-Za-z0-9]+$"),
+    employeePattern("^[A-Za-z]+$"),
+    enteredGallery(false),
+    currentRoom(""),
+    leaveGallery(false),
+    enteredLobby(false), 
+    enteredPaleontology(false), 
+    enteredEgyptian(false), 
+    enteredMesopotamian(false), 
+    enteredGreek(false), 
+    enteredSouthAsian(false)
 {}
 
 //////////////////////////////////////////FUNCTION DEFINITIONS///////////////////////////////////////////////////
 
+void appendLog::bindDetails(const string& token, const string& name, bool isGuest, const string& room){ //binding details to map with token as key
+
+    Person& logPerson = group[token]; //reference to person in map
+    logPerson.currentToken = token;
+    if (!logPerson.name.empty()){// checking if empty to avoid storing tokens in memory if not needed
+    if (logPerson.name != name){
+        cout<<"Invalid Token entry, utilizing token for another person!"<<endl;
+        exit(255);
+    }
+    }
+
+    if(!logPerson.name.empty() && logPerson.isGuest == isGuest){
+        if(logPerson.isGuest == false){
+            cout<<"You cannot be guest and employee!"<<endl;
+            exit(255);
+        }
+    }
+    else {
+        logPerson.isGuest = isGuest;
+    }
+
+    if(!logPerson.name.empty() && logPerson.isGuest == !isGuest){
+        if(logPerson.isGuest == true){
+            cout<<"You cannot be guest and employee!"<<endl;
+            exit(255);
+        }
+    }
+
+}
+
 void appendLog::TimeStamp(const string& tmp){// COMPLETE, maybe bounds checking for overflow
     string tmptime = tmp;
     int convertedTime = stoi(tmptime);
-    if(  convertedTime<1 || convertedTime>1073741823) {// ensuring time is within these numbers
+     convertedTime = stoi(tmptime);
+        if(  convertedTime<1 || convertedTime>1073741823) {// ensuring time is within these numbers
         cout<<"Time entered is not within range"<<endl;
         exit(255);
     }
@@ -60,65 +106,49 @@ void appendLog::TimeStamp(const string& tmp){// COMPLETE, maybe bounds checking 
         cout<<"Time is lesser than the last time logged"<<endl;
         exit(255);
     }
-    else{
+    else {
         lastStamp = convertedTime; //storing most recent time
     }
-
 }
 
 void appendLog::Token(const string& tmp){// COMPLETE: need asserts
     if( !regex_match (tmp, tokenPattern)) {// whitelisting characters using regex
-        printf("Invalid token format");
+        cout<<"Invalid token format"<<endl;
         exit(255);
-   
+    }
+    else{
+        token = tmp; //storing token
     }
 }
 
-void appendLog::EmployeeName(const string& tmp){// NEED TO IMPLEMENT: tests, validation
+void appendLog::EmployeeName(const string& tmp){// NEED TO IMPLEMENT: tests
     if( !regex_match (tmp, employeePattern) || tmp.length()>=20) {//adding a limit for name will change if needed, whitelisting regex
-        printf("Invalid employee name");
+        cout<<"Invalid employee name"<<endl;
         exit(255);
-    } else{
-        employee = true;
-        if(employee && guest){// cannot add log if you are both a guest and employee
-            cout<<"You cannot be a guest and an employee"<<endl;
-            exit (255);
-        }
-    }
-
+    } 
+    bindDetails(token, tmp, false, "");
 }
-void appendLog::GuestName(const string& tmp){ // NEED TO IMPLEMENT: tests, validation
+
+void appendLog::GuestName(const string& tmp){ // NEED TO IMPLEMENT: tests
      if( !regex_match (tmp, employeePattern)|| tmp.length()>=20) {//adding a limit for name will change if needed, whitelisting regex
-        printf("Invalid guest name");
+        cout<<"Invalid guest name"<<endl;
         exit(255);
     }
-    else {
-        guest = true;
-        if(employee && guest){// cannot add log if you are both a guest and employee
-            cout<<"Cannot be employee and guest"<<endl;
-            exit (255);
-        }
-    }
-
+    
+    bindDetails(token, tmp, true, "");
 }
-
-/*void appendLog::leaveRoom(bool yourRoom){
-    Room(tmpj);
-    if (!enteredGallery && (enteredEgyptian || enteredGreek || enteredMesopotamian || enteredPaleontology || enteredSouthAsian)){  //cannot enter room if you are not in gallery
-        cout<<"Invalid room"<<endl;
-        exit(255);
-    }
-}*/
 
 void appendLog::Room(const string& tmp){
     currentRoom = tmp;    
     int convertedRoom = stoi(tmp); //converted string to integer to check room number
-    if( convertedRoom>7|| convertedRoom<0) { //added** bounds checking
+    if( convertedRoom>7|| convertedRoom<-1) { //added** bounds checking
         cout<<"Invalid room entered"<<endl; //if number is >7 or <0 invalid
-        exit(-1);// NEED TO IMPLEMENT: tests, validation
+        exit(-1);// NEED TO IMPLEMENT: tests
     }
     else{
         switch(convertedRoom){// adding rooms to check entry
+            case -1: enteredGallery = false;
+            break;
             case 0: enteredGallery = true;
             break;
             case 1: enteredLobby = true;
@@ -136,11 +166,12 @@ void appendLog::Room(const string& tmp){
             case 7: leaveGallery = true; //enter 7 to go outside
             break;
             default:
-            printf("Invalid room");
+            cout<<"Invalid room"<<endl;
             exit(255);
         }
     }
 
+    
 }
 
 void appendLog::EventArrival(const string& tmp, const string& tmpj){
@@ -149,22 +180,39 @@ void appendLog::EventArrival(const string& tmp, const string& tmpj){
         cout<<"Invalid room, enter gallery first"<<endl;
         exit(255); //NEED TO IMPLEMENT:additional cases for arriving at a room, tests, bounds
     }
+    bindDetails(token, "", false, tmpj);
 }
 
 void appendLog::EventLeave(const string& tmp, const string& tmpj){
-Room(tmpj);
+    Room(tmpj);
      if (!enteredGallery && (enteredEgyptian || enteredGreek || enteredMesopotamian || enteredPaleontology || enteredSouthAsian)){  //cannot leave gallery without leaving room
         cout<<"Invalid, leave current room first"<<endl;
         exit(255); //NEED TO IMPLEMENT:additional cases for leaving a room, tests, bounds
     }
+    bindDetails(token, "", false, tmpj);
 }
 
+    
+void appendLog::storeFileName(const string& tmp, int argc, char* argv[]){
+    fileName = tmp;
+    ofstream logFile(fileName, ios::app); //appending to file
+    for(int i=1; i< argc; i++){ // Save all arguments as entered
+        logFile << argv[i];
+        if (i < argc - 1) logFile << " "; // add spaces between args
+    }
+    logFile << endl; // end line after entire log
+    logFile.close();
+}
+
+void validateLogFile(const string& filename) {
+    
+}
 
 
 /////////////////////////////////////////////////////MAIN FILE///////////////////////////////////////////////////////////////////////////////////
 int main (int argc, char* argv[]){
 
-    if (argc> 40) {  //NEED TO IMPLEMENT: bounds checking for token, have to decide max elements for each part
+    if (argc<2 || argc>40) {  //NEED TO IMPLEMENT: bounds checking for token, have to decide max elements for each part
         cout<<"Invalid Entry"<<endl;
         exit(255);
     }
@@ -198,10 +246,9 @@ int main (int argc, char* argv[]){
         else if ((std::string (argv[i])) == "-R"){
             log.Room(argv[++i]);
         }
-    
-     }
-        for (int j =0; j<argc; j++){//NEED TO IMPLEMENT: Processing data to file filename following -B
-             cout<<argv[j]<<" ";
+        else if ((std::string (argv[i])) == "-B"){
+            log.storeFileName(argv[++i], argc, argv);
+        }
         }
         cout<<"Done Logging";
     }
@@ -211,10 +258,6 @@ int main (int argc, char* argv[]){
 
 
 
-
-
-
-    
 
 
 
