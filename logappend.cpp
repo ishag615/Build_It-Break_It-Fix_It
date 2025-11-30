@@ -131,7 +131,7 @@ bool LogAppend::readExistingLog() {
         if (parts.size() < 5) continue;
         
          //extracting fields from log file
-        int ts = atoi(parts[0].c_str());
+        long long ts = stoll(parts[0].c_str());
         string name = parts[1];
         bool isEmp = (parts[2] == "E");
         bool isArr = (parts[3] == "A");
@@ -141,7 +141,7 @@ bool LogAppend::readExistingLog() {
             lastTimestamp = ts; //updating last timestamp
         }
         
-        //getting corect state
+        //getting correct state
         map<string, PersonState>& stateMap = isEmp ? employeeStates : guestStates;
         PersonState& state = stateMap[name];
         
