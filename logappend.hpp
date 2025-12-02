@@ -8,6 +8,9 @@
 #include <vector>
 #include <cstdlib>
 #include <regex>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/file.h>
 
 using namespace std;
 
