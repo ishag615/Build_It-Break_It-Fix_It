@@ -6,6 +6,11 @@
 #include <cstdlib>
 #include <regex>
 #include "logappend.hpp"
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/file.h>
+
+
 
 using namespace std;
 
@@ -13,7 +18,6 @@ using namespace std;
 regex tokenPattern("^[a-zA-Z0-9]+$");
 regex employeeNamePattern("^[a-zA-Z]{1,19}$"); 
 regex guestNamePattern("^[a-zA-Z]{1,19}$");
-regex filenamePattern("^[^<>:\"/\\\\|?*]+$");
 
 //Add constructor to initialize variables
 LogAppend::LogAppend() :
@@ -57,8 +61,7 @@ bool LogAppend::validateName(const string& name) {
 //check filename for .. , // and '\'
 
 bool LogAppend::checkFileName(const string& fileName) {
-    if (!fileName.find("..") == string::npos || !fileName.find("//") == string::npos) {
-        cout << "Resource injection attempt detected" << endl;
+    if (fileName.find("..") != string::npos || fileName.find("//") != string::npos || fileName.find('\\') != string::npos) {  
         return false;
     }
     return true;
@@ -92,7 +95,8 @@ bool LogAppend::readExistingLog() {
         return true; // New file - OK
     }
 
-    if (!checkFileName(logFileName)) { //checking for resource injection
+    if (!(checkFileName(logFileName))) {
+        cout << "Resource injection attempt detected" << endl;
         inFile.close();
         return false;
     }
@@ -131,7 +135,7 @@ bool LogAppend::readExistingLog() {
         if (parts.size() < 5) continue;
         
          //extracting fields from log file
-        int ts = atoi(parts[0].c_str());
+        long long ts = stoll(parts[0].c_str()); //using stoll to handle long long
         string name = parts[1];
         bool isEmp = (parts[2] == "E");
         bool isArr = (parts[3] == "A");
@@ -141,7 +145,7 @@ bool LogAppend::readExistingLog() {
             lastTimestamp = ts; //updating last timestamp
         }
         
-        //getting corect state
+        //getting correct state
         map<string, PersonState>& stateMap = isEmp ? employeeStates : guestStates;
         PersonState& state = stateMap[name];
         
@@ -245,6 +249,17 @@ bool LogAppend::writeToLog() {
     bool fileExists = checkFile.good();
     checkFile.close();
 
+    int filePath = open(logFileName.c_str(), O_RDWR | O_CREAT, 0644);
+    if (filePath == -1) {
+        cout << "Error opening file for locking" << endl;
+        return false;
+    }
+    if (flock(filePath, 2) == -1) { //acquire exclusive lock
+        cout << "Error acquiring file lock" << endl;
+        close(filePath);
+        return false;
+    }
+
     if(!checkFileName(logFileName)) { //checking for resource injection
         cout << "Resource injection attempt detected" << endl;
         return false;
@@ -272,14 +287,16 @@ bool LogAppend::writeToLog() {
             << (isEmployee ? "E" : "G") << ","
             << (isArrival ? "A" : "L") << ","
             << roomId << endl;
-    
+
+    flock(filePath, 8);
+    close(filePath);
     outFile.close();
     return true;
 }
 
 bool LogAppend::processArguments(int argc, char* argv[]) {
     // Argument count validation
-    if (argc < 2 || argc > 40) {
+    if (argc < 2 || argc > 40) { //bounds checking arguments
         cout << "Too many arguments" << endl;
         return false;
     }
@@ -292,7 +309,7 @@ bool LogAppend::processArguments(int argc, char* argv[]) {
         string arg = argv[i];
         
         if (arg == "-T" && i + 1 < argc) {
-            timestamp = atoi(argv[++i]);
+            timestamp = stoll(argv[++i]);
             hasTimestamp = true;
         }
         else if (arg == "-K" && i + 1 < argc) {
@@ -334,7 +351,7 @@ bool LogAppend::processArguments(int argc, char* argv[]) {
             hasAction = true;
         }
         else if (arg == "-R" && i + 1 < argc) {
-            roomId = atoi(argv[++i]);
+            roomId = stoll(argv[++i]);
             if (!validateRoomId(roomId)) {
                 cout << "Invalid Room ID entered" << endl;
                 return false;
@@ -351,7 +368,7 @@ bool LogAppend::processArguments(int argc, char* argv[]) {
     
     // check for missing argumers
     if (!hasTimestamp || !hasToken || !hasPerson || !hasAction || logFileName.empty()) {
-        cout << "Missing information in log/ format" << endl;
+        cout << "Missing information in log format" << endl;
         return false;
     }
     
@@ -367,8 +384,7 @@ bool LogAppend::processArguments(int argc, char* argv[]) {
     
     if (!readExistingLog()) return false;
 
-    if (!validateTimestamp(timestamp)) { //validate timestamp after reading log
-        cout << "Time is lesser than previous timestamp" << endl;
+    if (!validateTimestamp(timestamp)) { //validate timestamp after reading log;
         return false;
     }
     
@@ -379,6 +395,7 @@ bool LogAppend::processArguments(int argc, char* argv[]) {
 }
 
 
+#ifndef TESTING //to avoid using this main when testing
 int main(int argc, char* argv[]) {
     cout << "Welcome to A&I museum system! Enter a log/sequence of actions to begin" << endl;
     cout << "Please use the following format: -T <timestamp> -K <token> -E <employee_name> -A -R <room_id> <log_file>" << endl;
@@ -392,3 +409,4 @@ int main(int argc, char* argv[]) {
     
     return 0;
 }
+#endif

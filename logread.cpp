@@ -4,8 +4,13 @@
 #include <map>
 #include <vector>
 #include <cstdlib>
+#include <regex>
 
 using namespace std;
+
+regex tokenPattern("^[a-zA-Z0-9]+$");
+regex namePattern("^[a-zA-Z]{1,19}$");
+regex filenamePattern("^[^<>:\"/\\\\|?*]+$");
 
 struct PersonState {
     bool inGallery;
@@ -19,14 +24,14 @@ class LogAppend {
 private:
     string token;
     string logFileName;
-    int timestamp;
+    long long timestamp;
     string personName;
     bool isEmployee;
     bool isArrival;
     int roomId;
     bool hasRoom;
     
-    int lastTimestamp;
+    long long lastTimestamp;
     map<string, PersonState> employeeStates;
     map<string, PersonState> guestStates;
     
@@ -53,7 +58,7 @@ bool LogAppend::validateToken(const string& tok) {
     if (tok.empty()) return false;
     for (size_t i = 0; i < tok.length(); i++) {
         char c = tok[i];
-        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) {
+        if (!regex_match(string(1, c), tokenPattern)) {
             return false;
         }
     }
@@ -64,7 +69,7 @@ bool LogAppend::validateName(const string& name) {
     if (name.empty()) return false;
     for (size_t i = 0; i < name.length(); i++) {
         char c = name[i];
-        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))) {
+        if (!regex_match(string(1, c), namePattern)) {
             return false;
         }
     }
@@ -75,6 +80,12 @@ bool LogAppend::readExistingLog() {
     ifstream inFile(logFileName.c_str());
     if (!inFile.is_open()) {
         return true; // File doesn't exist yet
+    }
+
+    if(!logFileName.find("..") == string::npos || !logFileName.find("//") == string::npos) {
+        cout << "Resource injection attempt detected" << endl;
+        inFile.close();
+        return false;
     }
     
     string fileToken;
@@ -106,7 +117,7 @@ bool LogAppend::readExistingLog() {
         
         if (tokens.size() < 5) continue;
         
-        int ts = atoi(tokens[0].c_str());
+        long long ts = atoll(tokens[0].c_str());
         string name = tokens[1];
         bool isEmp = (tokens[2] == "E");
         bool isArr = (tokens[3] == "A");
@@ -243,7 +254,7 @@ bool LogAppend::processArguments(int argc, char* argv[]) {
                 cout << "invalid" << endl;
                 return false;
             }
-            timestamp = atoi(argv[++i]);
+            timestamp = stoll(argv[++i]);
             hasTimestamp = true;
         }
         else if (arg == "-K") {

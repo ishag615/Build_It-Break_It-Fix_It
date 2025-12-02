@@ -33,7 +33,7 @@ void testTimestamp() {
 }
 
 // to correct error of two mains
-#ifndef TESTING
+#ifdef TESTING
 int main() {
     cout<<"Starting tests"<<endl;
     testRoomEntry();
