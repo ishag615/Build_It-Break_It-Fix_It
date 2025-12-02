@@ -10,7 +10,6 @@ using namespace std;
 
 regex tokenPattern("^[a-zA-Z0-9]+$");
 regex namePattern("^[a-zA-Z]{1,19}$");
-regex filenamePattern("^[^<>:\"/\\\\|?*]+$");
 
 struct PersonState {
     bool inGallery;
@@ -82,7 +81,7 @@ bool LogAppend::readExistingLog() {
         return true; // File doesn't exist yet
     }
 
-    if(!logFileName.find("..") == string::npos || !logFileName.find("//") == string::npos) {
+    if(!logFileName.find("..") != string::npos || !logFileName.find("//") != string::npos) {
         cout << "Resource injection attempt detected" << endl;
         inFile.close();
         return false;
@@ -381,6 +380,7 @@ bool LogAppend::processArguments(int argc, char* argv[]) {
     
     return true;
 }
+
 
 int main(int argc, char* argv[]) {
     LogAppend log;

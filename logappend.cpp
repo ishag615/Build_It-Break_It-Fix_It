@@ -6,9 +6,9 @@
 #include <cstdlib>
 #include <regex>
 #include "logappend.hpp"
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/file.h>
+#include <unistd.h> // for close() function
+#include <fcntl.h> // for O_CREAT, O_WRONLY, O_APPEND
+#include <sys/file.h> //for flock()
 
 
 
@@ -100,7 +100,12 @@ bool LogAppend::readExistingLog() {
         inFile.close();
         return false;
     }
-    
+
+    //write only, creating file if doesnt exist. 0602- owner may read/write- mode is append, others can write only
+    int filePath = open(logFileName.c_str(), O_RDONLY, 0602); //read only
+
+    flock(filePath, 2); // 2-locks file for reading only
+
     // Read token from first line
     string fileToken;
     if (!getline(inFile, fileToken)) {
@@ -174,6 +179,8 @@ bool LogAppend::readExistingLog() {
         }
     }
     
+    flock(filePath, 8); // 8-unlocks
+    close(filePath); //closing file after unlocking
     inFile.close();
     return true;
 }
@@ -249,22 +256,16 @@ bool LogAppend::writeToLog() {
     bool fileExists = checkFile.good();
     checkFile.close();
 
-    int filePath = open(logFileName.c_str(), O_RDWR | O_CREAT, 0644);
-    if (filePath == -1) {
-        cout << "Error opening file for locking" << endl;
-        return false;
-    }
-    if (flock(filePath, 2) == -1) { //acquire exclusive lock
-        cout << "Error acquiring file lock" << endl;
-        close(filePath);
-        return false;
-    }
-
     if(!checkFileName(logFileName)) { //checking for resource injection
         cout << "Resource injection attempt detected" << endl;
         return false;
     }
-    
+
+     //write only, creating file if doesnt exist. 0602- owner may read/write- mode is append, others can write only
+    int filePath = open(logFileName.c_str(), O_WRONLY | O_APPEND |O_CREAT, 0602); 
+
+    flock(filePath, 2); // 2-locks
+
     ofstream outFile;
     
     if (!fileExists) {
@@ -288,8 +289,9 @@ bool LogAppend::writeToLog() {
             << (isArrival ? "A" : "L") << ","
             << roomId << endl;
 
-    flock(filePath, 8);
-    close(filePath);
+    flock(filePath, 8); // 8-unlocks
+    close(filePath); //closing file after unlocking
+
     outFile.close();
     return true;
 }
