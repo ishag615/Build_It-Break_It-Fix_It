@@ -1,17 +1,18 @@
 # Compiler
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra
+LDFLAGS = -lssl -lcrypto
 
 # Target executable 
 TARGET = logappend
-SRC = logappend.cpp
+SRC = logappend.cpp encryption.cpp
 TEST = test_logappend.cpp
 
 # Default rule
 all: $(TARGET)
 
 $(TARGET): $(SRC)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC) $(LDFLAGS)
 
 # Clean rule
 clean:

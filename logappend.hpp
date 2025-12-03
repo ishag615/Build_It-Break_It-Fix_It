@@ -11,6 +11,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/file.h>
+#include <openssl/evp.h>
+#include <openssl/aes.h>
+#include <openssl/rand.h>
+#include <openssl/sha.h>
+#include "encryption.hpp"
 
 using namespace std;
 
