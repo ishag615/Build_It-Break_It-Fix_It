@@ -1,6 +1,7 @@
 # Compiler
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra
+LDFLAGS = -lssl -lcrypto
 
 # Target executables
 TARGET = logappend
@@ -14,7 +15,7 @@ TEST_LOGREAD = test_logread.cpp
 all: $(TARGET) $(LOGREAD)
 
 $(TARGET): $(SRC)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC) $(LDFLAGS)
 
 $(LOGREAD): $(LOGREAD_SRC)
 	$(CXX) $(CXXFLAGS) -o $(LOGREAD) $(LOGREAD_SRC)

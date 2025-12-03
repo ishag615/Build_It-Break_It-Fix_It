@@ -9,8 +9,7 @@
 #include <unistd.h> // for close() function
 #include <fcntl.h> // for O_CREAT, O_WRONLY, O_APPEND
 #include <sys/file.h> //for flock()
-
-
+#include "encryption.hpp"
 
 using namespace std;
 
@@ -92,8 +91,11 @@ bool LogAppend::validateRoomId(int room) {
 bool LogAppend::readExistingLog() {
     ifstream inFile(logFileName.c_str());
     if (!inFile.is_open()) {
-        return true; // New file - OK
+        return true; 
     }
+
+    // Creating decryption object
+    AESEncryption decrypt(token);
 
     if (!(checkFileName(logFileName))) {
         cout << "Resource injection attempt detected" << endl;
@@ -125,9 +127,12 @@ bool LogAppend::readExistingLog() {
     while (getline(inFile, line)) {
         if (line.empty()) continue;
         
+        // Decrypting ciphertext
+        string plainTextLog = decrypt.decrypt(line);
+        
         // Parse CSV: timestamp,name,E/G,A/L,roomId
         vector<string> parts;
-        string temp = line;
+        string temp = plainTextLog; //assigning decreypted text to temp variable
         size_t pos;
         
         // Split by comma
@@ -261,11 +266,20 @@ bool LogAppend::writeToLog() {
         return false;
     }
 
-     //write only, creating file if doesnt exist. 0602- owner may read/write- mode is append, others can write only
+    //write only, creating file if doesnt exist. 0602- owner may read/write- mode is append, others can write only
     int filePath = open(logFileName.c_str(), O_WRONLY | O_APPEND |O_CREAT, 0602); 
 
     flock(filePath, 2); // 2-locks
 
+    // making logentry and converting timestamp and roomId to string
+    string logEntry = to_string(timestamp) + "," + personName + "," + (isEmployee ? "E" : "G") + "," + (isArrival ? "A" : "L") + "," + to_string(roomId);
+    
+    // Creating encryption object
+    AESEncryption encryptObj(token);
+
+    // encrypting log entry
+    string encryptedLog = encryptObj.encrypt(logEntry);
+    
     ofstream outFile;
     
     if (!fileExists) {
@@ -283,11 +297,8 @@ bool LogAppend::writeToLog() {
         }
     }
     
-    outFile << timestamp << ","
-            << personName << ","
-            << (isEmployee ? "E" : "G") << ","
-            << (isArrival ? "A" : "L") << ","
-            << roomId << endl;
+    //writing encrypted log to file
+    outFile << encryptedLog << endl;
 
     flock(filePath, 8); // 8-unlocks
     close(filePath); //closing file after unlocking
