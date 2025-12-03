@@ -67,28 +67,28 @@ bool LogAppend::checkFileName(const string& fileName) {
 }   
 
 //Timestamp validation
-bool LogAppend::validateTimestamp(long long ts) {
+bool LogAppend::validateTimestamp(long long ts) { //using long long to avoid integer overflow
     if (ts < 1 || ts > 1073741823) { //making sure timestamp is in valid range
-        cout << "Timestamp is invalid" << endl;
+        cout << "Invalid" << endl;
         return false;
     }
     if (ts <= lastTimestamp) {
-        cout << "Time is lesser than previous timestamp" << endl;
+        cout << "Invalid" << endl;
         return false;
     }
     return true;
 }
 
 // Room validation 
-bool LogAppend::validateRoomId(long long room) {
+bool LogAppend::validateRoomId(long long room) { //using long long to avoid overflow
     if (room < -1 || room > 7) { //making sure room is between -1 and 7
-        cout << "Room number out of range" << endl;
+        cout << "Invalid" << endl;
         return false;
     }
     return true;
 }
 
-bool LogAppend::readExistingLog() {
+bool LogAppend::readExistingLog() { //reads existing log file
     ifstream inFile(logFileName.c_str());
     if (!inFile.is_open()) {
         return true; 
@@ -98,7 +98,7 @@ bool LogAppend::readExistingLog() {
     AESEncryption decrypt(token);
 
     if (!(checkFileName(logFileName))) {
-        cout << "Resource injection attempt detected" << endl;
+        cout << "Invalid" << endl;
         inFile.close();
         return false;
     }
@@ -117,7 +117,7 @@ bool LogAppend::readExistingLog() {
     
     // Verify token matches
     if (fileToken != token) {
-        cout << "Token mismatch" << endl;
+        cout << "Invalid" << endl;
         inFile.close();
         return false;
     }
@@ -152,19 +152,19 @@ bool LogAppend::readExistingLog() {
         long long room = stoll(parts[4].c_str());
         
         if (ts > lastTimestamp) {
-            lastTimestamp = ts; //updating last timestamp
+            lastTimestamp = ts; //updating last timestamp to ensure that time always increases
         }
         
         //getting correct state
-        map<string, PersonState>& stateMap = isEmp ? employeeStates : guestStates;
+        map<string, PersonState>& stateMap = isEmp ? employeeStates : guestStates; //mappring states
         PersonState& state = stateMap[name];
         
         if (state.name.empty()) {
             state.name = name;
         }
         
-        // Replay this event
-        if (isArr) {
+        
+        if (isArr) {// checking room state for arrival
             if (room == -1) {
                 state.inGallery = true;
                 state.currentRoom = -1;
@@ -191,15 +191,15 @@ bool LogAppend::readExistingLog() {
 }
 
 bool LogAppend::validateStateTransition() {
-    //Check if person exists in opposite category
+    //Check if person exists in opposite category, if they are employee and guest
     if (isEmployee) {
         if (guestStates.find(personName) != guestStates.end()) {
-            cout << "Cannot be employee and guest" << endl;
+            cout << "Invalid" << endl;
             return false;
         }
     } else {
         if (employeeStates.find(personName) != employeeStates.end()) {
-            cout << "Cannot be employee and guest" << endl;
+            cout << "Invalid" << endl;
             return false;
         }
     }
@@ -217,17 +217,17 @@ bool LogAppend::validateStateTransition() {
         if (!hasRoom) {
             // Arriving at gallery
             if (state.inGallery) { 
-                cout << "Already in gallery" << endl;
+                cout << "Invalid" << endl;
                 return false;
             }
         } else {
             // Arriving at specific room
             if (!state.inGallery) {
-                cout << "Please enter gallery before entering a room" << endl;
+                cout << "Invalid" << endl;
                 return false; // Must enter gallery first
             }
             if (state.currentRoom != -1) {
-                cout << "Please leave previous room before entering a new one" << endl;
+                cout << "Invalid" << endl;
                 return false; // Must leave previous room first
             }
         }
@@ -236,17 +236,17 @@ bool LogAppend::validateStateTransition() {
         if (!hasRoom) {
             // Leaving gallery
             if (!state.inGallery) {
-                cout << "Not in gallery" << endl;
+                cout << "Invalid" << endl;
                 return false;
             }
             if (state.currentRoom != -1) {
-                cout << "Please leave room before leaving gallery" << endl;
+                cout << "Invalid" << endl;
                 return false; // Must leave room before leaving gallery
             }
         } else {
             // Leaving specific room
             if (state.currentRoom != roomId) {
-                cout << "Please leave the correct room" << endl;
+                cout << "Invalid" << endl;
                 return false;
             }
         }
@@ -262,19 +262,19 @@ bool LogAppend::writeToLog() {
     checkFile.close();
 
     if(!checkFileName(logFileName)) { //checking for resource injection
-        cout << "Resource injection attempt detected" << endl;
+        cout << "Invalid" << endl;
         return false;
     }
 
     //write only, creating file if doesnt exist. 0602- owner may read/write- mode is append, others can write only
     int filePath = open(logFileName.c_str(), O_WRONLY | O_APPEND |O_CREAT, 0602); 
 
-    flock(filePath, 2); // 2-locks
+    flock(filePath, 2); // 2-locks file- cannot write
 
     // making logentry and converting timestamp and roomId to string
     string logEntry = to_string(timestamp) + "," + personName + "," + (isEmployee ? "E" : "G") + "," + (isArrival ? "A" : "L") + "," + to_string(roomId);
     
-    // Creating encryption object
+    // Creating encryption object for class
     AESEncryption encryptObj(token);
 
     // encrypting log entry
@@ -285,14 +285,14 @@ bool LogAppend::writeToLog() {
     if (!fileExists) {
         outFile.open(logFileName.c_str());
         if (!outFile.is_open()) {
-            cout << "File does not open" << endl;
+            cout << "Invalid" << endl;
             return false;
         }
         outFile << token << endl;
     } else {
         outFile.open(logFileName.c_str(), ios::app);
         if (!outFile.is_open()) {
-            cout << "File does not open" << endl;
+            cout << "Invalid" << endl;
             return false;
         }
     }
@@ -310,7 +310,7 @@ bool LogAppend::writeToLog() {
 bool LogAppend::processArguments(int argc, char* argv[]) {
     // Argument count validation
     if (argc < 2 || argc > 40) { //bounds checking arguments
-        cout << "Too many arguments" << endl;
+        cout << "Invalid" << endl;
         return false;
     }
     
@@ -328,7 +328,7 @@ bool LogAppend::processArguments(int argc, char* argv[]) {
         else if (arg == "-K" && i + 1 < argc) {
             token = argv[++i];
             if (!validateToken(token)) {
-                cout << "Invalid Token entered" << endl;
+                cout << "Invalid" << endl;
                 return false;
             }
             hasToken = true;
@@ -336,7 +336,7 @@ bool LogAppend::processArguments(int argc, char* argv[]) {
         else if (arg == "-E" && i + 1 < argc) {
             personName = argv[++i];
             if (!validateName(personName)) {
-                cout << "Invalid Name entered" << endl;
+                cout << "Invalid" << endl;
                 return false;
             }
             isEmployee = true;
@@ -346,7 +346,7 @@ bool LogAppend::processArguments(int argc, char* argv[]) {
         else if (arg == "-G" && i + 1 < argc) {
             personName = argv[++i];
             if (!validateName(personName)) {
-                cout << "Invalid Name entered" << endl;
+                cout << "Invalid" << endl;
                 return false;
             }
             isEmployee = false;
@@ -366,7 +366,7 @@ bool LogAppend::processArguments(int argc, char* argv[]) {
         else if (arg == "-R" && i + 1 < argc) {
             roomId = stoll(argv[++i]);
             if (!validateRoomId(roomId)) {
-                cout << "Invalid Room ID entered" << endl;
+                cout << "Invalid" << endl;
                 return false;
             }
             hasRoom = true;
@@ -381,13 +381,13 @@ bool LogAppend::processArguments(int argc, char* argv[]) {
     
     // check for missing argumers
     if (!hasTimestamp || !hasToken || !hasPerson || !hasAction || logFileName.empty()) {
-        cout << "Missing information in log format" << endl;
+        cout << "Invalid" << endl;
         return false;
     }
     
     // Check conflicts
     if ((hasEmployee && hasGuest) || (hasArrival && hasDeparture)) {
-        cout << "Cannot be employee and guest" << endl;
+        cout << "Invalid" << endl;
         return false;
     }
     
@@ -408,7 +408,7 @@ bool LogAppend::processArguments(int argc, char* argv[]) {
 }
 
 
-#ifndef TESTING //to avoid using this main when testing
+#ifndef TESTING //to avoid using 2 mains when testing
 int main(int argc, char* argv[]) {
     cout << "Welcome to A&I museum system! Enter a log/sequence of actions to begin" << endl;
     cout << "Please use the following format: -T <timestamp> -K <token> -E <employee_name> -A -R <room_id> <log_file>" << endl;

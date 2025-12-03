@@ -32,7 +32,7 @@ clean:
 
 # Run logappend unit tests
 test_logappend: $(TEST_LOGAPPEND) $(SRC)
-	$(CXX) $(CXXFLAGS) -DTESTING -o test_logappend $(TEST_LOGAPPEND) $(SRC)
+	$(CXX) $(CXXFLAGS) -DTESTING -o test_logappend $(TEST_LOGAPPEND) $(SRC) $(LDFLAGS)
 	./test_logappend
 
 # Run logread integration tests

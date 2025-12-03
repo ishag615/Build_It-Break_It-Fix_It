@@ -3,7 +3,7 @@
 **Project Name:** Build It, Break It, Fix It - Art Gallery Tracking System
 
 **Team Members:**
-- Name 1 – Amitha Ajithkumari
+- Name 1 – Amitha Ajithkumar
 - Name 2 – Isha Gupta
 
 ## Overview
@@ -38,6 +38,10 @@ project-root/
 ### Prerequisites
 - C++17 compatible compiler (g++ or clang)
 - Make utility
+- iomanip
+- unistd.h // for close() function
+- fcntl.h // for O_CREAT, O_WRONLY, O_APPEND
+- sys/file.h //for flock()
 
 ### Compile All Programs
 
@@ -100,7 +104,7 @@ g++ -std=c++17 -Wall -Wextra -o logread src/logread.cpp
 ./logappend -T 1 -K mytoken123 -E Alice -A ..//log.txt
 
 #Traversal Attack
-./logappend -T 2 -K mytoken123 -E Alice -A ../../etc/passwd
+./logappend -T 1 -K mytoken123 -E Alice -A ../../etc/passwd
 
 #Normal room entry
 ./logappend -T 2 -K mytoken123 -E Alice -A -R 1 log.txt
@@ -110,9 +114,13 @@ g++ -std=c++17 -Wall -Wextra -o logread src/logread.cpp
 
 #Invalid employee/ guest state
 ./logappend -T 3 -K mytoken123 -G Alice -A -R -1 log.txt
+./logappend -T 3 -K mytoken123 -E Alice -G Bob -A log.txt
 
-#Leaving incorrect room
-./logappend -T 4 -K mytoken123 -E Alice -L -R 1 log.txt
+#Leaving room normally
+./logappend -T 3 -K mytoken123 -E Alice -L -R 1 log.txt
+
+#Leaving incorrect room 
+./logappend -T 4 -K mytoken123 -E Alice -L -R 2 log.txt
 
 #Name Buffer overflow
 ./logappend -T 4 -K mytoken123 -E AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA -A log.txt
@@ -123,6 +131,12 @@ g++ -std=c++17 -Wall -Wextra -o logread src/logread.cpp
 #Name input validation check
 ./logappend -T 4 -K mytoken123 -E Alice123 -A log.txt
 
+#Missing information
+./logappend -T 4 -K mytoken123 -A log.txt
+
+#File lock- can be tested by running multiple arguments together
+
+#AES encryption can be viewed after appending log.txt (or a file of any name)
 
 ```
 
@@ -144,13 +158,16 @@ g++ -std=c++17 -Wall -Wextra -o logread src/logread.cpp
 
 ```bash
 # Display current gallery state (use log.txt/ any file decalred in logappend)
-./logread -K mytoken123 -S gallery.log
+./logread -K mytoken123 -S log.txt
 
 # Display room history for employee Alice
-./logread -K mytoken123 -R -E Alice gallery.log
+./logread -K mytoken123 -R -E Alice log.txt
 
 # Display room history for guest Bob
-./logread -K mytoken123 -R -G Bob gallery.log
+./logread -K mytoken123 -R -G Bob log.txt
+
+#Resource Injection attempt
+./logread -K mytoken123 -R -E Alice ../log.txt
 ```
 
 ## State Validation

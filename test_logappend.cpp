@@ -8,7 +8,7 @@ LogAppend logTest;
 
 void testRoomEntry() {
     assert(logTest.validateRoomId(3) == true);
-    assert(logTest.validateRoomId(-2) == false);
+    assert(logTest.validateRoomId(-2) == false); //checking bounds and input validation
     assert(logTest.validateRoomId(8) == false);
     cout<<"Done testing room entry"<<endl;
 }
@@ -22,7 +22,7 @@ void testName() {
 
 void testToken() {
     assert(logTest.validateToken("thist0k3n1sval1d") == true);
-    assert(logTest.validateToken("@!!!!!#$%%Y^&&##") == false);
+    assert(logTest.validateToken("@!!!!!#$%%Y^&&##") == false); //checking input validation
     cout<<"Done testing token"<<endl;
 }
 
@@ -40,7 +40,7 @@ int main() {
     testName();
     testToken();
     testTimestamp();
-    cout<<"Done testing"<<endl;
+    cout<<"Done testing logappend"<<endl;
     return 0;
 }
 #endif
