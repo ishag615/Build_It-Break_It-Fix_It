@@ -19,41 +19,31 @@ struct PersonState {
     PersonState() : inGallery(false), currentRoom(-1) {}
 };
 
-class LogAppend {
+class LogRead {
 private:
     string token;
     string logFileName;
-    long long timestamp;
-    string personName;
-    bool isEmployee;
-    bool isArrival;
-    int roomId;
-    bool hasRoom;
+    string queryType; // "S" for state, "R" for room history
+    string queryPerson;
+    bool isQueryEmployee;
     
-    long long lastTimestamp;
     map<string, PersonState> employeeStates;
     map<string, PersonState> guestStates;
     
     bool validateToken(const string& tok);
-    bool validateName(const string& name);
+    bool checkFileName(const string& fileName);
     bool readExistingLog();
-    bool validateStateTransition();
-    bool writeToLog();
+    void printStateQuery();
+    void printRoomHistory();
     
 public:
-    LogAppend();
+    LogRead();
     bool processArguments(int argc, char* argv[]);
 };
 
-LogAppend::LogAppend() : 
-    timestamp(-1),
-    isEmployee(false),
-    isArrival(false),
-    roomId(-1),
-    hasRoom(false),
-    lastTimestamp(0) {}
+LogRead::LogRead() : queryType(""), isQueryEmployee(false) {}
 
-bool LogAppend::validateToken(const string& tok) {
+bool LogRead::validateToken(const string& tok) {
     if (tok.empty()) return false;
     for (size_t i = 0; i < tok.length(); i++) {
         char c = tok[i];
@@ -64,24 +54,21 @@ bool LogAppend::validateToken(const string& tok) {
     return true;
 }
 
-bool LogAppend::validateName(const string& name) {
-    if (name.empty()) return false;
-    for (size_t i = 0; i < name.length(); i++) {
-        char c = name[i];
-        if (!regex_match(string(1, c), namePattern)) {
-            return false;
-        }
+bool LogRead::checkFileName(const string& fileName) {
+    if (fileName.find("..") != string::npos || fileName.find("//") != string::npos || fileName.find('\\') != string::npos) {
+        return false;
     }
     return true;
 }
 
-bool LogAppend::readExistingLog() {
+bool LogRead::readExistingLog() {
     ifstream inFile(logFileName.c_str());
     if (!inFile.is_open()) {
-        return true; // File doesn't exist yet
+        cout << "invalid" << endl;
+        return false;
     }
 
-    if(!logFileName.find("..") != string::npos || !logFileName.find("//") != string::npos) {
+    if (!checkFileName(logFileName)) {
         cout << "Resource injection attempt detected" << endl;
         inFile.close();
         return false;
@@ -89,12 +76,13 @@ bool LogAppend::readExistingLog() {
     
     string fileToken;
     if (!getline(inFile, fileToken)) {
+        cout << "invalid" << endl;
         inFile.close();
         return false;
     }
     
     if (fileToken != token) {
-        cout << "invalid" << endl;
+        cout << "integrity violation" << endl;
         inFile.close();
         return false;
     }
@@ -104,27 +92,22 @@ bool LogAppend::readExistingLog() {
     while (getline(inFile, line)) {
         if (line.empty()) continue;
         
-        vector<string> tokens;
+        vector<string> parts;
         string temp = line;
         size_t pos;
         
         while ((pos = temp.find(',')) != string::npos) {
-            tokens.push_back(temp.substr(0, pos));
+            parts.push_back(temp.substr(0, pos));
             temp.erase(0, pos + 1);
         }
-        tokens.push_back(temp);
+        parts.push_back(temp);
         
-        if (tokens.size() < 5) continue;
+        if (parts.size() < 5) continue;
         
-        long long ts = atoll(tokens[0].c_str());
-        string name = tokens[1];
-        bool isEmp = (tokens[2] == "E");
-        bool isArr = (tokens[3] == "A");
-        int room = atoi(tokens[4].c_str());
-        
-        if (ts > lastTimestamp) {
-            lastTimestamp = ts;
-        }
+        string name = parts[1];
+        bool isEmp = (parts[2] == "E");
+        bool isArr = (parts[3] == "A");
+        int room = atoi(parts[4].c_str());
         
         // Update state
         map<string, PersonState>& stateMap = isEmp ? employeeStates : guestStates;
@@ -152,111 +135,94 @@ bool LogAppend::readExistingLog() {
     return true;
 }
 
-bool LogAppend::validateStateTransition() {
-    map<string, PersonState>& stateMap = isEmployee ? employeeStates : guestStates;
-    PersonState& state = stateMap[personName];
-    
-    if (isArrival) {
-        if (!hasRoom) {
-            // Arriving at gallery
-            if (state.inGallery) {
-                cout << "invalid" << endl;
-                return false; // Already in gallery
-            }
-        } else {
-            // Arriving at specific room
-            if (!state.inGallery) {
-                cout << "invalid" << endl;
-                return false; // Must enter gallery first
-            }
-            if (state.currentRoom != -1) {
-                cout << "invalid" << endl;
-                return false; // Must leave previous room first
-            }
+void LogRead::printStateQuery() {
+    // Print employees
+    cout << "Employees: ";
+    for (auto& emp : employeeStates) {
+        cout << emp.first;
+        if (emp.second.currentRoom >= 0) {
+            cout << " (Room " << emp.second.currentRoom << ")";
+        } else if (emp.second.inGallery) {
+            cout << " (Gallery)";
         }
-    } else {
-        // Departure
-        if (!hasRoom) {
-            // Leaving gallery
-            if (!state.inGallery) {
-                cout << "invalid" << endl;
-                return false; // Not in gallery
-            }
-            if (state.currentRoom != -1) {
-                cout << "invalid" << endl;
-                return false; // Must leave room first
-            }
-        } else {
-            // Leaving specific room
-            if (state.currentRoom != roomId) {
-                cout << "invalid" << endl;
-                return false; // Not in that room
-            }
+        cout << " ";
+    }
+    cout << endl;
+    
+    // Print guests
+    cout << "Guests: ";
+    for (auto& guest : guestStates) {
+        cout << guest.first;
+        if (guest.second.currentRoom >= 0) {
+            cout << " (Room " << guest.second.currentRoom << ")";
+        } else if (guest.second.inGallery) {
+            cout << " (Gallery)";
+        }
+        cout << " ";
+    }
+    cout << endl;
+    
+    // Print room occupancy
+    map<int, vector<string>> roomOccupancy;
+    for (auto& emp : employeeStates) {
+        if (emp.second.currentRoom >= 0) {
+            roomOccupancy[emp.second.currentRoom].push_back(emp.first);
+        }
+    }
+    for (auto& guest : guestStates) {
+        if (guest.second.currentRoom >= 0) {
+            roomOccupancy[guest.second.currentRoom].push_back(guest.first);
         }
     }
     
-    return true;
+    for (auto& room : roomOccupancy) {
+        cout << "Room " << room.first << ": ";
+        for (size_t i = 0; i < room.second.size(); i++) {
+            cout << room.second[i];
+            if (i < room.second.size() - 1) cout << ", ";
+        }
+        cout << endl;
+    }
 }
 
-bool LogAppend::writeToLog() {
-    ifstream checkFile(logFileName.c_str());
-    bool fileExists = checkFile.good();
-    checkFile.close();
+void LogRead::printRoomHistory() {
+    map<string, PersonState>& stateMap = isQueryEmployee ? employeeStates : guestStates;
     
-    ofstream outFile;
-    
-    if (!fileExists) {
-        outFile.open(logFileName.c_str());
-        if (!outFile.is_open()) {
-            cout << "invalid" << endl;
-            return false;
-        }
-        outFile << token << endl;
-    } else {
-        outFile.open(logFileName.c_str(), ios::app);
-        if (!outFile.is_open()) {
-            cout << "invalid" << endl;
-            return false;
-        }
+    if (stateMap.find(queryPerson) == stateMap.end()) {
+        // Person not found - print nothing
+        return;
     }
     
-    outFile << timestamp << ","
-            << personName << ","
-            << (isEmployee ? "E" : "G") << ","
-            << (isArrival ? "A" : "L") << ","
-            << roomId << endl;
+    PersonState& state = stateMap[queryPerson];
     
-    outFile.close();
-    return true;
+    // Print room history
+    for (size_t i = 0; i < state.roomsVisited.size(); i++) {
+        cout << state.roomsVisited[i];
+        if (i < state.roomsVisited.size() - 1) {
+            cout << ",";
+        }
+    }
+    if (!state.roomsVisited.empty()) {
+        cout << endl;
+    }
 }
 
-bool LogAppend::processArguments(int argc, char* argv[]) {
+bool LogRead::processArguments(int argc, char* argv[]) {
     if (argc < 2) {
         cout << "invalid" << endl;
         return false;
     }
     
-    bool hasTimestamp = false;
     bool hasToken = false;
-    bool hasPerson = false;
-    bool hasAction = false;
+    bool hasStateQuery = false;
+    bool hasRoomHistory = false;
     bool hasEmployee = false;
     bool hasGuest = false;
-    bool hasArrival = false;
-    bool hasDeparture = false;
     
     for (int i = 1; i < argc; i++) {
         string arg = argv[i];
         
-        if (arg == "-T") {
-            if (i + 1 >= argc) {
-                cout << "invalid" << endl;
-                return false;
-            }
-            timestamp = stoll(argv[++i]);
-            hasTimestamp = true;
-        }
-        else if (arg == "-K") {
+        if (arg == "-K") {
             if (i + 1 >= argc) {
                 cout << "invalid" << endl;
                 return false;
@@ -268,67 +234,47 @@ bool LogAppend::processArguments(int argc, char* argv[]) {
             }
             hasToken = true;
         }
+        else if (arg == "-S") {
+            hasStateQuery = true;
+        }
+        else if (arg == "-R") {
+            hasRoomHistory = true;
+        }
         else if (arg == "-E") {
             if (i + 1 >= argc) {
                 cout << "invalid" << endl;
                 return false;
             }
-            personName = argv[++i];
-            if (!validateName(personName)) {
-                cout << "invalid" << endl;
-                return false;
-            }
-            isEmployee = true;
+            queryPerson = argv[++i];
+            isQueryEmployee = true;
             hasEmployee = true;
-            hasPerson = true;
         }
         else if (arg == "-G") {
             if (i + 1 >= argc) {
                 cout << "invalid" << endl;
                 return false;
             }
-            personName = argv[++i];
-            if (!validateName(personName)) {
-                cout << "invalid" << endl;
-                return false;
-            }
-            isEmployee = false;
+            queryPerson = argv[++i];
+            isQueryEmployee = false;
             hasGuest = true;
-            hasPerson = true;
-        }
-        else if (arg == "-A") {
-            isArrival = true;
-            hasArrival = true;
-            hasAction = true;
-        }
-        else if (arg == "-L") {
-            isArrival = false;
-            hasDeparture = true;
-            hasAction = true;
-        }
-        else if (arg == "-R") {
-            if (i + 1 >= argc) {
-                cout << "invalid" << endl;
-                return false;
-            }
-            roomId = atoi(argv[++i]);
-            if (roomId < 0 || roomId > 1073741823) {
-                cout << "invalid" << endl;
-                return false;
-            }
-            hasRoom = true;
-        }
-        else if (arg == "-B") {
-            cout << "invalid" << endl;
-            return false; // Batch not implemented yet
         }
         else if (arg[0] != '-') {
             logFileName = arg;
         }
     }
     
-    // Validate required arguments
-    if (!hasTimestamp || !hasToken || !hasPerson || !hasAction) {
+    // Validate arguments
+    if (!hasToken || logFileName.empty()) {
+        cout << "invalid" << endl;
+        return false;
+    }
+    
+    if (!hasStateQuery && !hasRoomHistory) {
+        cout << "invalid" << endl;
+        return false;
+    }
+    
+    if (hasStateQuery && hasRoomHistory) {
         cout << "invalid" << endl;
         return false;
     }
@@ -338,52 +284,28 @@ bool LogAppend::processArguments(int argc, char* argv[]) {
         return false;
     }
     
-    if (hasArrival && hasDeparture) {
+    if (hasRoomHistory && !hasEmployee && !hasGuest) {
         cout << "invalid" << endl;
         return false;
     }
     
-    if (logFileName.empty()) {
-        cout << "invalid" << endl;
-        return false;
-    }
-    
-    if (timestamp < 1 || timestamp > 1073741823) {
-        cout << "invalid" << endl;
-        return false;
-    }
-    
-    if (!hasRoom) {
-        roomId = -1;
-    }
-    
-    // Read existing log
+    // Read log file
     if (!readExistingLog()) {
         return false;
     }
     
-    // Validate timestamp
-    if (timestamp <= lastTimestamp) {
-        cout << "invalid" << endl;
-        return false;
-    }
-    
-    // Validate state transition
-    if (!validateStateTransition()) {
-        return false;
-    }
-    
-    // Write to log
-    if (!writeToLog()) {
-        return false;
+    // Execute query
+    if (hasStateQuery) {
+        printStateQuery();
+    } else if (hasRoomHistory) {
+        printRoomHistory();
     }
     
     return true;
 }
 
-
 int main(int argc, char* argv[]) {
-    LogAppend log;
+    LogRead log;
     
     if (!log.processArguments(argc, argv)) {
         return 255;
