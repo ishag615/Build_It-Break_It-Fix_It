@@ -91,6 +91,41 @@ g++ -std=c++17 -Wall -Wextra -o logread src/logread.cpp
 ./logappend -T 115 -K mytoken123 -E Alice -L gallery.log
 ```
 
+***Demonstration of protections, please test in order:***
+```bash
+#First log
+./logappend -T 1 -K mytoken123 -E Alice -A log.txt
+
+#Resource injection attack
+./logappend -T 1 -K mytoken123 -E Alice -A ..//log.txt
+
+#Traversal Attack
+./logappend -T 2 -K mytoken123 -E Alice -A ../../etc/passwd
+
+#Normal room entry
+./logappend -T 2 -K mytoken123 -E Alice -A -R 1 log.txt
+
+#Invalid Token- checking input validation
+./logappend -T 2 -K mytoken123#$% -E Alice -A -R -1 log.txt
+
+#Invalid employee/ guest state
+./logappend -T 3 -K mytoken123 -G Alice -A -R -1 log.txt
+
+#Leaving incorrect room
+./logappend -T 4 -K mytoken123 -E Alice -L -R 1 log.txt
+
+#Name Buffer overflow
+./logappend -T 4 -K mytoken123 -E AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA -A log.txt
+
+#Room integer overflow
+./logappend -T 4 -K mytoken123 -E Alice -L -R -28738728373872837 log.txt
+
+#Name input validation check
+./logappend -T 4 -K mytoken123 -E Alice123 -A log.txt
+
+
+```
+
 ### logread – Querying the Log File
 
 ```bash
@@ -108,7 +143,7 @@ g++ -std=c++17 -Wall -Wextra -o logread src/logread.cpp
 **Examples:**
 
 ```bash
-# Display current gallery state
+# Display current gallery state (use log.txt/ any file decalred in logappend)
 ./logread -K mytoken123 -S gallery.log
 
 # Display room history for employee Alice

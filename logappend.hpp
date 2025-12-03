@@ -44,7 +44,7 @@ private:
     string personName;
     bool isEmployee;
     bool isArrival;
-    int roomId;
+    long long roomId;
     bool hasRoom;
     
     // State tracking
@@ -70,7 +70,7 @@ public:
     bool validateToken(const string& tok);
     bool validateName(const string& name);
     bool validateTimestamp(long long ts);
-    bool validateRoomId(int room);
+    bool validateRoomId(long long room);
     bool checkFileName(const string& filename);
     bool processArguments(int argc, char* argv[]);
 };

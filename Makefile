@@ -1,26 +1,26 @@
-# Compiler
+# Compiler and flags
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra
 LDFLAGS = -lssl -lcrypto
 
-# Target executables
+# Targets and source files
 TARGET = logappend
 LOGREAD = logread
-SRC = logappend.cpp
-LOGREAD_SRC = logread.cpp
+SRC = logappend.cpp encryption.cpp
+LOGREAD_SRC = logread.cpp encryption.cpp
 TEST_LOGAPPEND = test_logappend.cpp
 TEST_LOGREAD = test_logread.cpp
 
-# Default rule
+# Build targets
 all: $(TARGET) $(LOGREAD)
 
 $(TARGET): $(SRC)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC) $(LDFLAGS)
 
 $(LOGREAD): $(LOGREAD_SRC)
-	$(CXX) $(CXXFLAGS) -o $(LOGREAD) $(LOGREAD_SRC)
+	$(CXX) $(CXXFLAGS) -o $(LOGREAD) $(LOGREAD_SRC) $(LDFLAGS)
 
-# Clean rule
+# Clean output files
 clean:
 	rm -f $(TARGET)
 	rm -f $(LOGREAD)

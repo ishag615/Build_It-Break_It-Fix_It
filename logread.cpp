@@ -5,6 +5,7 @@
 #include <vector>
 #include <cstdlib>
 #include <regex>
+#include "encryption.hpp"
 
 using namespace std;
 
@@ -86,14 +87,18 @@ bool LogRead::readExistingLog() {
         inFile.close();
         return false;
     }
-    
+
+    AESEncryption decrypt(token);
+
     // Read all entries to reconstruct state
     string line;
     while (getline(inFile, line)) {
         if (line.empty()) continue;
+
+        string decryptRead =  decrypt.decrypt(line);
         
         vector<string> parts;
-        string temp = line;
+        string temp = decryptRead;
         size_t pos;
         
         while ((pos = temp.find(',')) != string::npos) {

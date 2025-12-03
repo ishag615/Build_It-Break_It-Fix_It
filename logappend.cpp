@@ -80,7 +80,7 @@ bool LogAppend::validateTimestamp(long long ts) {
 }
 
 // Room validation 
-bool LogAppend::validateRoomId(int room) {
+bool LogAppend::validateRoomId(long long room) {
     if (room < -1 || room > 7) { //making sure room is between -1 and 7
         cout << "Room number out of range" << endl;
         return false;
@@ -149,7 +149,7 @@ bool LogAppend::readExistingLog() {
         string name = parts[1];
         bool isEmp = (parts[2] == "E");
         bool isArr = (parts[3] == "A");
-        int room = atoi(parts[4].c_str());
+        long long room = stoll(parts[4].c_str());
         
         if (ts > lastTimestamp) {
             lastTimestamp = ts; //updating last timestamp
